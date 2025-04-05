@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:sidasi/screens/survey/survey_input.dart';
+import 'package:sidasi/screens/survey/survey.dart';
 import 'package:sidasi/screens/home_page.dart';
 import 'package:sidasi/screens/profile_page.dart';
 import 'package:sidasi/smart/chatbot.dart';
+import 'package:sidasi/services/survey_service.dart';
 
 class WoDetailPage extends StatelessWidget {
   final dynamic survey;
@@ -15,9 +19,7 @@ class WoDetailPage extends StatelessWidget {
           context, MaterialPageRoute(builder: (context) => HomePage()));
     } else if (index == 1) {
       Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => WoDetailPage(survey: survey)));
+          context, MaterialPageRoute(builder: (context) => SurveyPage()));
     } else if (index == 2) {
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => ChatbotPage()));
@@ -66,28 +68,89 @@ class WoDetailPage extends StatelessWidget {
             SizedBox(height: 5),
             Text(survey['title'],
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            SizedBox(height: 10),
+            SizedBox(height: 5),
 
             // Menampilkan detail survey
-            Text("Form Number: ${survey['form_number']}"),
-            Text("Requestor Name: ${survey['questor_name']}"),
-            Text("FAT: ${survey['fat']}"),
-            Text("Customer Name: ${survey['customer_name']}"),
-            Text("Address: ${survey['address']}"),
-            Text("Node FDT: ${survey['node_fdt']}"),
-            Text("Survey Date: ${survey['survey_date']}"),
+            Text(
+              "Form Number: ${survey['form_number']}",
+              style: TextStyle(fontSize: 16),
+            ),
+            Text("Requestor Name: ${survey['questor_name']}",
+                style: TextStyle(fontSize: 16)),
+            Text("FAT: ${survey['fat']}", style: TextStyle(fontSize: 16)),
+            Text("Customer Name: ${survey['customer_name']}",
+                style: TextStyle(fontSize: 16)),
+            Text("Address: ${survey['address']}",
+                style: TextStyle(fontSize: 16)),
+            Text("Node FDT: ${survey['node_fdt']}",
+                style: TextStyle(fontSize: 16)),
+            Text("Survey Date: ${survey['survey_date']}",
+                style: TextStyle(fontSize: 16)),
 
             SizedBox(height: 20),
 
-            // Menampilkan gambar dari survey
+            // Menampilkan gambar dari survey dengan autentikasi
             survey['image_id'] != null
-                ? Image.network(
-                    "http://192.168.1.12:3000/api/v1/files/download?id=${survey['image_id']}",
-                    height: 200,
-                    fit: BoxFit.cover,
+                ? FutureBuilder(
+                    future: SurveyService.getSurveyImageUrl(survey['image_id']),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Container(
+                          height: 300,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      } else if (snapshot.hasError || !snapshot.hasData) {
+                        return Container(
+                          height: 300,
+                          color: Colors.grey[300],
+                          child: Center(
+                              child:
+                                  Icon(Icons.broken_image, color: Colors.red)),
+                        );
+                      } else {
+                        final imageUrl = snapshot.data!['url'];
+                        final headers = snapshot.data!['headers'];
+
+                        return FutureBuilder<Response<List<int>>>(
+                          future: Dio().get<List<int>>(
+                            imageUrl,
+                            options: Options(
+                              responseType: ResponseType.bytes,
+                              headers: headers,
+                            ),
+                          ),
+                          builder: (context, imageSnapshot) {
+                            if (imageSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Container(
+                                height: 300,
+                                child:
+                                    Center(child: CircularProgressIndicator()),
+                              );
+                            } else if (imageSnapshot.hasError ||
+                                imageSnapshot.data == null) {
+                              return Container(
+                                height: 300,
+                                color: Colors.grey[300],
+                                child: Center(
+                                  child: Icon(Icons.broken_image,
+                                      size: 100, color: Colors.grey),
+                                ),
+                              );
+                            } else {
+                              return Image.memory(
+                                Uint8List.fromList(imageSnapshot.data!.data!),
+                                height: 300,
+                                fit: BoxFit.cover,
+                              );
+                            }
+                          },
+                        );
+                      }
+                    },
                   )
                 : Container(
-                    height: 200,
+                    height: 300,
                     width: double.infinity,
                     color: Colors.grey[300],
                     child: Icon(Icons.image, size: 100, color: Colors.grey),

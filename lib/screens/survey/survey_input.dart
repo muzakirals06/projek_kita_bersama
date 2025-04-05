@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sidasi/screens/survey/survey.dart';
 import 'package:sidasi/services/survey_service.dart';
 import 'package:sidasi/screens/home_page.dart';
 import 'package:sidasi/screens/profile_page.dart';
 import 'package:sidasi/smart/chatbot.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SurveyInputPage extends StatefulWidget {
   final Map<String, dynamic> survey;
@@ -17,6 +19,9 @@ class SurveyInputPage extends StatefulWidget {
 
 class _SurveyInputPageState extends State<SurveyInputPage> {
   String? selectedResult;
+  // Tambahkan variabel image_id hasil upload
+  String? uploadedImageId;
+
   final TextEditingController _remarkController = TextEditingController();
   bool _isLoading = false;
   int _selectedIndex = 1; // Index menu survey
@@ -69,9 +74,9 @@ class _SurveyInputPageState extends State<SurveyInputPage> {
   Future<void> _submitSurvey() async {
     if (selectedResult == null ||
         _remarkController.text.isEmpty ||
-        selectedImage == null) {
+        uploadedImageId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Mohon lengkapi semua data sebelum menyimpan!")),
+        SnackBar(content: Text("Lengkapi hasil, catatan, dan upload gambar!")),
       );
       return;
     }
@@ -79,16 +84,22 @@ class _SurveyInputPageState extends State<SurveyInputPage> {
     setState(() => _isLoading = true);
 
     try {
-      await SurveyService.updateSurvey(widget.survey['id'], {
-        "result": selectedResult,
+      await SurveyService.submitSurveyReport({
+        "survey_id": widget.survey['id'],
+        "status": selectedResult!
+            .toLowerCase(), // convert to lowercase sesuai contoh JSON kamu
         "remark": _remarkController.text,
+        "image_id": uploadedImageId,
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Survey berhasil diperbarui")));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Report berhasil dikirim")),
+      );
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Gagal memperbarui survey")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal menyimpan report")),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -101,7 +112,8 @@ class _SurveyInputPageState extends State<SurveyInputPage> {
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => HomePage()));
     } else if (index == 1) {
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => SurveyPage()));
     } else if (index == 2) {
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => ChatbotPage()));
@@ -154,25 +166,27 @@ class _SurveyInputPageState extends State<SurveyInputPage> {
               // Dropdown Result
               Text("Hasil Survey"),
               SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey),
+              DropdownButtonFormField<String>(
+                value: selectedResult,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                child: ExpansionTile(
-                  title: Text(selectedResult ?? "Pilih hasil survey"),
-                  children: resultOptions.map((result) {
-                    return ListTile(
-                      title: Text(result),
-                      onTap: () {
-                        setState(() {
-                          selectedResult = result;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+                hint: Text("Pilih hasil survey"),
+                onChanged: (value) {
+                  setState(() {
+                    selectedResult = value!;
+                  });
+                },
+                items: resultOptions.map((result) {
+                  return DropdownMenuItem<String>(
+                    value: result,
+                    child: Text(result),
+                  );
+                }).toList(),
               ),
+
               SizedBox(height: 16),
 
               // Remark
@@ -213,6 +227,52 @@ class _SurveyInputPageState extends State<SurveyInputPage> {
                 ),
               ),
               SizedBox(height: 16),
+
+              // Tombol Upload Image
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    if (selectedImage == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text("Pilih gambar terlebih dahulu.")),
+                      );
+                      return;
+                    }
+
+                    setState(() => _isLoading = true);
+                    try {
+                      final fileId =
+                          await SurveyService.uploadSurveyImage(selectedImage!);
+                      if (fileId == null) {
+                        throw Exception("Gagal upload gambar");
+                      }
+                      setState(() {
+                        uploadedImageId = fileId;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Gambar berhasil diupload")),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text("Upload gagal: ${e.toString()}")),
+                      );
+                    } finally {
+                      setState(() => _isLoading = false);
+                    }
+                  },
+                  icon: Icon(Icons.upload_file),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  label: Text("Upload Image",
+                      style: TextStyle(fontSize: 16, color: Colors.white)),
+                ),
+              ),
+              SizedBox(height: 12),
 
               // Tombol Simpan
               _isLoading
