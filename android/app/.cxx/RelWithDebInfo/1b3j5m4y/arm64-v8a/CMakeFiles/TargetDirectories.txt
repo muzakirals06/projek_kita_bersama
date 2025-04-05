@@ -1,0 +1,2 @@
+C:/Users/media/sidasi/android/app/.cxx/RelWithDebInfo/1b3j5m4y/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/media/sidasi/android/app/.cxx/RelWithDebInfo/1b3j5m4y/arm64-v8a/CMakeFiles/rebuild_cache.dir
