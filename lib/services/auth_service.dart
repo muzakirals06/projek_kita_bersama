@@ -1,11 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_service.dart';
+import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:sidasi/services/dio_client.dart';
 
 class AuthService {
   final Dio _dio = Dio();
-  final String baseUrl = "http://192.168.1.12:3000/api/v1";
+  final String baseUrl = "http://192.168.1.4:3000/api/v1";
+  final CookieJar cookieJar = CookieJar();
 
   Future<void> saveTokens(
       String sessionToken, String csrfToken, String userId) async {
@@ -17,6 +22,21 @@ class AuthService {
     print("✅ Session Token Disimpan: $sessionToken");
     print("✅ CSRF Token Disimpan: $csrfToken");
     print("✅ User ID Disimpan: $userId");
+  }
+
+  AuthService() {
+    _dio.interceptors.add(CookieManager(cookieJar));
+  }
+
+  Future<void> fetchUserData(BuildContext context) async {
+    try {
+      final dio = DioClient.getInstance(context);
+      final response = await dio.get('/users?id=123');
+
+      // Gunakan response...
+    } catch (e) {
+      print("Error saat fetch user: $e");
+    }
   }
 
   Future<int> login(String email, String password) async {
@@ -43,12 +63,36 @@ class AuthService {
         print("✅ Token dan ID berhasil dikirim ke user_service.dart");
         return 200;
       } else {
-        print("⚠ Login gagal: ${response.data['message']}");
+        print("⚠️ Login gagal: ${response.data['message']}");
         return response.statusCode ?? 500;
       }
     } catch (e) {
       print("❌ Error saat login: $e");
       return 500;
+    }
+  }
+
+  Future<bool> validateSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? sessionToken = prefs.getString('session_token');
+
+    if (sessionToken == null) return false;
+
+    try {
+      final response = await _dio.get(
+        "$baseUrl/validate",
+        options: Options(
+          headers: {
+            "Authorization": "Bearer $sessionToken",
+          },
+        ),
+      );
+
+      print("✅ Session valid: ${response.statusCode}");
+      return response.statusCode == 200;
+    } catch (e) {
+      print("❌ Session invalid or error: $e");
+      return false;
     }
   }
 
@@ -75,7 +119,7 @@ class AuthService {
           },
         ),
       );
-      print("ℹ Register Response Code: ${response.statusCode}");
+      print("ℹ️ Register Response Code: ${response.statusCode}");
       return response.statusCode ?? 500;
     } on DioException catch (e) {
       print("❌ Register Error: ${e.response?.statusCode ?? 500}");
@@ -92,24 +136,29 @@ class AuthService {
     String? sessionToken = prefs.getString('session_token');
 
     if (sessionToken == null) {
-      print("⚠ Tidak ada session token, langsung menghapus data lokal.");
+      print("⚠️ Tidak ada session token, langsung menghapus data lokal.");
       await prefs.clear();
       return;
     }
 
     try {
-      await _dio.post(
+      final response = await _dio.post(
         "$baseUrl/logout",
         options: Options(headers: {
           "Authorization": "Bearer $sessionToken",
         }),
       );
-      print("✅ Logout berhasil dari server.");
+
+      if (response.statusCode == 200) {
+        print("✅ Logout berhasil dari server.");
+      } else {
+        print("⚠️ Logout gagal dari server: ${response.statusCode}");
+      }
     } catch (e) {
-      print("⚠ Logout Error: $e");
+      print("⚠️ Logout Error: $e");
     }
 
-    // Hapus data setelah logout
+    // Hapus data lokal setelah logout
     await prefs.clear();
     print("✅ Token dan data pengguna telah dihapus dari perangkat.");
   }

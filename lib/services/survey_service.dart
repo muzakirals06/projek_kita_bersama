@@ -3,8 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- Tambahkan ini
 
 class SurveyService {
-  static const String baseUrl = 'http://192.168.1.12:3000/api/v1';
-  static const String uploadUrl = 'http://192.168.1.12:3000/api/v1/files';
+  static const String baseUrl = 'http://192.168.1.4:3000/api/v1';
+  static const String uploadUrl = 'http://192.168.1.4:3000/api/v1/files';
 
   /// 🔐 Ambil headers dengan session dan CSRF token
   static Future<Map<String, String>> _getAuthHeaders() async {

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:excel/excel.dart';
-import 'dart:typed_data';
 import 'package:sidasi/screens/home_page.dart';
+import 'package:sidasi/screens/profile_page.dart';
 import 'package:sidasi/screens/survey/survey.dart';
+import 'package:sidasi/services/chatbot_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatbotPage extends StatefulWidget {
   @override
@@ -16,12 +15,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
   List<Map<String, String>> messages = [];
   int _selectedIndex = 2;
 
-  // Fungsi untuk menangani navigasi pada bottom navigation bar
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-      
-    });
+    if (index == _selectedIndex) return;
 
     if (index == 0) {
       Navigator.pushReplacement(
@@ -36,45 +31,15 @@ class _ChatbotPageState extends State<ChatbotPage> {
     }
   }
 
-  // Fungsi untuk membaca file Excel dari assets
-  Future<List<List<String>>> readExcel() async {
-    ByteData data = await rootBundle.load("assets/ismart/i-smart.xlsx");
-    Uint8List bytes = data.buffer.asUint8List();
-    var excel = Excel.decodeBytes(bytes);
-
-    List<List<String>> excelData = [];
-
-    for (var table in excel.tables.keys) {
-      for (var row in excel.tables[table]!.rows) {
-        excelData.add(row.map((cell) => cell?.value.toString() ?? "").toList());
-      }
+  void _launchUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Tidak dapat membuka URL: $url';
     }
-
-    return excelData;
   }
 
-  // Fungsi untuk mencari Fibernode di file Excel
-  Future<String> searchFibernode(String fibernode) async {
-    List<List<String>> data = await readExcel();
-
-    for (var row in data) {
-      if (row.length > 3 && row[1].toLowerCase() == fibernode.toLowerCase()) {
-        String alamat = row[2]; // Kolom C
-        String koordinat = row[3]; // Kolom D
-        String locationUrl = "https://www.google.com/maps/place/$koordinat";
-
-        return "Data Fibernode ditemukan:\n"
-            "Fibernode: $fibernode\n"
-            "Alamat: $alamat\n"
-            "Koordinat: $koordinat\n"
-            "Location: $locationUrl";
-      }
-    }
-
-    return "First Squad BU4 - Strong Together";
-  }
-
-  // Fungsi untuk menangani pengiriman pesan
   void sendMessage() async {
     if (_controller.text.isEmpty) return;
 
@@ -84,7 +49,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       messages.insert(0, {"text": userMessage, "type": "sent"});
     });
 
-    String botResponse = await searchFibernode(userMessage);
+    String botResponse = await ChatbotService.searchFibernode(userMessage);
 
     setState(() {
       messages.insert(0, {"text": botResponse, "type": "received"});
@@ -93,30 +58,81 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _controller.clear();
   }
 
+  Widget _buildMessageContent(Map<String, String> message) {
+    String text = message["text"] ?? "";
+    bool isLink = text.contains("https://www.google.com/maps");
+
+    if (isLink && message["type"] == "received") {
+      final RegExp urlPattern =
+          RegExp(r'https:\/\/www\.google\.com\/maps\/place\/[^\s]+');
+      final match = urlPattern.firstMatch(text);
+      final url = match?.group(0) ?? "";
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text.replaceAll(url, '').trim(),
+            style: TextStyle(color: Colors.white),
+          ),
+          SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => _launchUrl(url),
+            child: Text(
+              '🔗 Buka Lokasi',
+              style: TextStyle(
+                color: Colors.lightBlueAccent,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      text,
+      style: TextStyle(color: Colors.white),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
-        title: GestureDetector(
-          onTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => HomePage()),
-            );
-          },
-          child: Text(
-            'SIDASI',
-            style: TextStyle(
-              fontFamily: 'Nico Moji',
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFFEAF27),
+        elevation: 0,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => HomePage()),
+                (route) => false,
+              ),
+              child: Text(
+                'SIDASI',
+                style: TextStyle(
+                  fontFamily: 'Nico Moji',
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
             ),
-          ),
+            IconButton(
+              icon: Icon(Icons.account_circle, size: 30, color: Colors.black),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ProfilePage()),
+                );
+              },
+            ),
+          ],
         ),
-        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -136,10 +152,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
                       color: isSent ? Colors.red : Colors.grey[800],
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(
-                      messages[index]["text"]!,
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    child: _buildMessageContent(messages[index]),
                   ),
                 );
               },
@@ -186,6 +199,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.black,
         onTap: _onItemTapped,
       ),
     );

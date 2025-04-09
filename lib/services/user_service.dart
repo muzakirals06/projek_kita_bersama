@@ -1,10 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 class UserService {
   final Dio _dio = Dio();
-  final String baseUrl = "http://192.168.1.12:3000/api/v1";
+  final String baseUrl = "http://192.168.1.4:3000/api/v1";
+  final CookieJar cookieJar = CookieJar();
 
+  UserService() {
+    _dio.interceptors.add(CookieManager(cookieJar));
+  }
   // ✅ Menyimpan data user setelah login
   Future<void> initializeUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -58,12 +64,12 @@ class UserService {
           print(responseData['data']);
           return responseData['data'];
         } else {
-          print("⚠ API mengembalikan kode: ${responseData['code']}");
-          print("⚠ Pesan error: ${responseData['message']}");
+          print("⚠️ API mengembalikan kode: ${responseData['code']}");
+          print("⚠️ Pesan error: ${responseData['message']}");
           return null;
         }
       } else {
-        print("⚠ API mengembalikan kode: ${response.statusCode}");
+        print("⚠️ API mengembalikan kode: ${response.statusCode}");
         return null;
       }
     } catch (e) {

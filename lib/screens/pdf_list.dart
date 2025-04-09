@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sidasi/screens/home_page.dart';
-import 'package:sidasi/services/file_service.dart';
+import '../services/file_service.dart';
 import 'profile_page.dart';
-import 'package:sidasi/screens/survey/survey.dart';
-import '../smart/chatbot.dart';
+import 'survey/survey.dart';
+import 'package:sidasi/screens/chatbot/chatbot_page.dart';
+import 'package:sidasi/services/dialog_service.dart';
 
 class PdfListPage extends StatefulWidget {
   final String searchQuery;
@@ -30,6 +31,12 @@ class _PdfListPageState extends State<PdfListPage> {
     try {
       List<Map<String, dynamic>> files =
           await FileService.fetchFiles(widget.searchQuery);
+
+      List<Map<String, dynamic>> filteredFiles = files.where((file) {
+        String fileName = file['file_name']?.toLowerCase() ?? '';
+        return fileName.endsWith('.pdf') || fileName.endsWith('.kmz');
+      }).toList();
+
       setState(() {
         _fileList = files;
         _isLoading = false;
@@ -172,6 +179,7 @@ class _PdfListPageState extends State<PdfListPage> {
                                 trailing: TextButton(
                                   onPressed: () => _downloadAndOpenFile(
                                       file['id'], file['file_name']),
+                                  //jika websocket telah siap ganti dengan PermissionDialog.showRequestPermissionDialog(context, file['id'], file['file_name']),
                                   child: Text(
                                     "View",
                                     style: TextStyle(color: Colors.orange),

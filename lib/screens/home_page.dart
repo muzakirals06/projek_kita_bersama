@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sidasi/screens/pdf_list.dart';
 import 'package:sidasi/screens/profile_page.dart';
 import 'package:sidasi/screens/survey/survey.dart';
-import 'package:sidasi/smart/chatbot.dart';
+import 'package:sidasi/screens/chatbot/chatbot_page.dart';
+import 'package:sidasi/screens/login_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -12,6 +14,26 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus(); // Cek login saat halaman dimuat
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+    final sessionToken = prefs.getString('session_token');
+
+    if (userId == null || sessionToken == null) {
+      // Belum login → arahkan ke LoginPage
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()),
+      );
+    }
+  }
 
   void _searchFile() {
     String query = _searchController.text.trim();
@@ -26,7 +48,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onItemTapped(int index) {
-    if (index == _selectedIndex) return; // Mencegah reload halaman yang sama
+    if (index == _selectedIndex) return;
 
     if (index == 0) {
       Navigator.pushReplacement(
@@ -50,7 +72,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // 🔥 Hilangkan tombol panah back
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
         title: Row(
@@ -58,9 +80,10 @@ class _HomePageState extends State<HomePage> {
           children: [
             GestureDetector(
               onTap: () => Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => HomePage()),
-                  (route) => false),
+                context,
+                MaterialPageRoute(builder: (context) => HomePage()),
+                (route) => false,
+              ),
               child: Text('SIDASI',
                   style: TextStyle(
                       fontFamily: 'Nico Moji',

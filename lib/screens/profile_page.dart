@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
 import 'package:sidasi/screens/home_page.dart';
+import 'package:sidasi/services/auth_service.dart';
+import 'package:sidasi/screens/login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -25,10 +27,18 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  void _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    Navigator.pushReplacementNamed(context, '/login');
+  Future<void> _logout() async {
+    try {
+      await AuthService().logout();
+
+      // Setelah logout berhasil (token dihapus), arahkan ke login
+      Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+    } catch (e) {
+      print("Logout gagal: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal logout. Silakan coba lagi.")),
+      );
+    }
   }
 
   @override
@@ -67,7 +77,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ],
                     ),
-
                     SizedBox(height: 4),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -84,25 +93,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           Icon(Icons.person, size: 60, color: Colors.black87),
                     ),
                     SizedBox(height: 32),
-
-                    // Nama
                     _buildProfileField("Nama", userData!['name']),
-
-                    // Call Sign
                     _buildProfileField("Call_Sign", userData!['call_sign']),
-
-                    // Phone
                     _buildProfileField("Phone", userData!['phone']),
-
-                    // Email
                     _buildProfileField("email", userData!['email']),
-
-                    // Password
                     _buildPasswordField(),
-
                     SizedBox(height: 30),
-
-                    // Logout button
                     SizedBox(
                       width: double.infinity,
                       height: 50,

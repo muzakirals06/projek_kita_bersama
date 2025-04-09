@@ -5,7 +5,7 @@ import 'package:sidasi/screens/survey/survey_input.dart';
 import 'package:sidasi/screens/survey/survey.dart';
 import 'package:sidasi/screens/home_page.dart';
 import 'package:sidasi/screens/profile_page.dart';
-import 'package:sidasi/smart/chatbot.dart';
+import 'package:sidasi/screens/chatbot/chatbot_page.dart';
 import 'package:sidasi/services/survey_service.dart';
 
 class WoDetailPage extends StatelessWidget {
